@@ -1,4 +1,5 @@
 export type AssetStatus = "pending" | "uploading" | "uploaded" | "failed";
+export type UserRole = "superadmin" | "admin" | "user";
 
 export interface LocalAssetRecord {
   id: number;
@@ -13,6 +14,8 @@ export interface LocalAssetRecord {
   uri?: string | null;
   serverId?: string | null;
   fileSizeBytes?: number;
+  userId?: number | null;
+  username?: string | null;
 }
 
 export interface QueueMetrics {
@@ -28,4 +31,38 @@ export interface QueueMetrics {
 export interface ServerUploadResponse {
   serverId: string;
   status: "ok" | "error";
+}
+
+// Authentication Types
+export interface AuthUser {
+  id: string;
+  email: string;
+  username: string;
+  name: string;
+  role: UserRole;
+}
+
+export interface AuthToken {
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt: number;
+}
+
+export interface AuthContextType {
+  user: AuthUser | null;
+  token: string | null;
+  isLoading: boolean;
+  isSignedIn: boolean;
+  isAdmin: boolean;
+  isSuperAdmin: boolean;
+  isUser: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  signup: (
+    email: string,
+    username: string,
+    name: string,
+    password: string
+  ) => Promise<void>;
+  logout: () => Promise<void>;
+  checkAuthStatus: () => Promise<void>;
 }

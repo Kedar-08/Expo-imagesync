@@ -23,20 +23,50 @@ Offline-first photo sync example built with Expo (managed workflow).
 - All image data and metadata is stored locally on the device in the app sandbox (SQLite database). Your PC only runs the dev server — it does not store the images.
 - When a backend exists and uploads succeed, the app stores the returned `server_id` in the local DB so records can be correlated.
 
-## Tech stack
+# PhotoSync (expo-photosyncapp)
 
-- Expo (managed workflow)
-- React Native + TypeScript
-- Local DB: `expo-sqlite`
-- Camera & picker: `expo-camera`, `expo-image-picker`
-- File handling: `expo-file-system`
-- Network detection: `expo-network`
-- Background: `expo-task-manager` + `expo-background-fetch` (Expo-managed limitations apply)
-- Utilities: `rxjs` for event/metrics, small helper modules in `src/services`
+PhotoSync is an offline-first example app built with Expo and TypeScript that demonstrates capturing/picking images, persisting them locally in SQLite, and syncing uploads when the device is online. It includes a role-based admin system (user/admin/superadmin) and lightweight audit tracking for administrative actions.
 
-## Quick start
+This README consolidates the project documentation into a single reference.
 
-1. Open a terminal and install dependencies
+## Contents
+
+- Project overview
+- How to run the project
+- Features and role capabilities (User / Admin / Super Admin)
+- Database & storage notes
+- Tech stack
+- Development & troubleshooting tips
+
+---
+
+## Project overview
+
+- Offline-first photo capture and sync example.
+- Photos and metadata are stored locally in a SQLite database (`photosync.db`).
+- App demonstrates an upload queue, retry logic, background sync, and role-based management UI.
+
+## Key features
+
+- Capture or pick images and store them locally (pending upload when offline)
+- Persistent upload queue with retry logic and status tracking
+- Background sync support (subject to OS limitations)
+- Role-based management and UI:
+  - User: capture/pick/upload images, view own images
+  - Admin: view all images, delete images, promote users to admin (promotions recorded)
+  - Super Admin: additional powers to demote admins and view full audit trails
+- Auditability: promotions and deletions by admins are recorded with timestamps; new deletions capture image metadata so thumbnails can be shown in the audit view
+
+## How deletion works
+
+- Clicking **Remove** in the Users screen calls `deleteUser(userId)`, which deletes the user row from the `users` table; after this the account cannot sign in or perform further actions.
+- By design, deleting a user currently does NOT cascade to remove related `assets`, `admin_promotions`, or `deleted_assets` rows; these are preserved to maintain an audit trail. If you'd like cascading deletes (atomic removal of related data), I can implement that change.
+
+---
+
+## Quick start (development)
+
+1. Install dependencies
 
 ```powershell
 cd d:\Bravo\expo-photosyncapp
@@ -49,44 +79,72 @@ npm install
 npm start
 ```
 
-3. Launch the app
+3. Run on device/emulator
 
-- Use Expo Go (scan the QR) or run on an emulator/device from the Expo CLI.
-
-## Running on an external device
-
-- To run the app on a physical/external device (recommended for testing camera, file I/O and background behavior), start the dev server using the tunnel option:
+- Use Expo Go (scan the QR) or run on an emulator via the Expo CLI.
+- For physical device testing (camera / file I/O) it's recommended to start with a tunnel:
 
 ```powershell
 npx expo start --tunnel
 ```
 
-This will open a tunnel so your phone can connect to the dev server even when it's not on the same local network.
+---
 
-## How to use the app
+## Roles & admin features
 
-- Open the app and go to the Capture screen.
-- Tap `Camera` to take a photo, or `Gallery` to pick one.
-- While offline the photo is saved to the local DB and marked `Pending`.
-- When the device is online the app uploads queued photos and marks them `Synced` with a server id.
-- Pull-to-refresh retries pending items; a manual `Retry` button is available per item.
+- User
+  - Capture photos via camera or pick from gallery
+  - Photos saved locally and uploaded when online
 
-## Configuration & notes
+- Admin
+  - View all uploaded images with uploader info
+  - Delete images (deletions are recorded)
+  - Promote regular users to admin (promotions are recorded, with promoter info)
 
-- Mock backend: the project includes a mock upload mode in `src/utils/api.ts` (use `USE_MOCK = true`) so you can test without a real backend.
-- To use a real backend: set `USE_MOCK = false` and update `API_BASE` in `src/utils/api.ts`.
-- Background fetch is throttled on mobile OSes — use EAS + custom dev client for more reliable background behavior.
-- Large images are stored as base64 in SQLite by default; consider storing files on disk and only keeping paths in the DB for production.
+- Super Admin
+  - All admin capabilities
+  - Demote admins back to users
+  - View audit trails for admin actions (who promoted whom, which images were deleted and when)
 
-## Next steps / ideas
+Notes:
 
-- Persist images on disk and save only paths in SQLite to reduce DB size
-- Implement real server endpoint with deduplication and verification
-- Add authentication and secure uploads (signed requests)
-- Add a settings screen for compression quality/behavior
+- Super Admin account is created automatically on first run with preconfigured credentials in the auth logic (see `src/context/AuthContext.tsx`).
 
-## License & contribution
+---
 
-- This example is provided as-is for learning and prototyping. Feel free to reuse the code — add attribution if you like.
+## Database & storage
 
-If you'd like, I can also add a short troubleshooting section or a small debug screen to export the SQLite contents.
+- Local DB: `expo-sqlite` storing tables such as `users`, `assets`, `admin_promotions`, and `deleted_assets`.
+- Images historically stored as base64 in the DB. For production, prefer storing image files on disk and storing file paths in the DB to reduce DB size.
+- The app runs lightweight migrations at startup to add columns/tables when the schema evolves.
+
+---
+
+## Tech stack
+
+- Expo (managed workflow)
+- React Native + TypeScript
+- SQLite via `expo-sqlite`
+- Camera & gallery: `expo-camera`, `expo-image-picker`
+- File handling: `expo-file-system`
+- Background tasks: `expo-task-manager`, `expo-background-fetch`
+- Secure storage: `expo-secure-store`
+- Utilities: `rxjs` for event bus patterns
+
+---
+
+## Development notes & useful commands
+
+- Install dependencies: `npm install`
+- Start dev server: `npm start`
+- Run on Android: `npm run android` (when configured)
+- Run on iOS: `npm run ios` (when configured)
+
+Files you will likely edit:
+
+- `src/context/AuthContext.tsx` — authentication and role logic
+- `src/db/db.ts` — migrations and DB queries
+- `src/screens/*` — UI screens (Capture, UserManagement, AssetManagement, UserProfile)
+- `src/utils/api.ts` — mock or real backend upload settings
+
+---
