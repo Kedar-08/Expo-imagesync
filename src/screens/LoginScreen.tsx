@@ -15,6 +15,7 @@ import {
 import { Formik } from "formik";
 import { useAuth } from "../context/AuthContext";
 import { loginValidationSchema } from "../utils/validationSchemas";
+import { authScreenStyles } from "../utils/styleHelpers";
 
 interface LoginScreenProps {
   onSignupPress: () => void;
@@ -33,10 +34,10 @@ export default function LoginScreen({ onSignupPress }: LoginScreenProps) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={authScreenStyles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.keyboardAvoid}
+        style={authScreenStyles.keyboardAvoid}
       >
         <ScrollView
           contentContainerStyle={styles.scrollContent}
@@ -62,15 +63,15 @@ export default function LoginScreen({ onSignupPress }: LoginScreenProps) {
               errors,
               touched,
             }) => (
-              <View style={styles.formContainer}>
+              <View style={authScreenStyles.formContainer}>
                 {/* Email Input */}
-                <View style={styles.fieldContainer}>
-                  <Text style={styles.label}>Email Address</Text>
+                <View style={authScreenStyles.fieldContainer}>
+                  <Text style={authScreenStyles.label}>Email Address</Text>
                   <TextInput
                     style={[
-                      styles.input,
+                      authScreenStyles.input,
                       touched.email && errors.email
-                        ? styles.inputError
+                        ? authScreenStyles.inputError
                         : undefined,
                     ]}
                     placeholder="Enter your email"
@@ -83,23 +84,25 @@ export default function LoginScreen({ onSignupPress }: LoginScreenProps) {
                     autoCapitalize="none"
                   />
                   {touched.email && errors.email && (
-                    <Text style={styles.errorText}>{errors.email}</Text>
+                    <Text style={authScreenStyles.errorText}>
+                      {errors.email}
+                    </Text>
                   )}
                 </View>
 
                 {/* Password Input */}
-                <View style={styles.fieldContainer}>
-                  <Text style={styles.label}>Password</Text>
+                <View style={authScreenStyles.fieldContainer}>
+                  <Text style={authScreenStyles.label}>Password</Text>
                   <View
                     style={[
-                      styles.passwordContainer,
+                      authScreenStyles.passwordContainer,
                       touched.password && errors.password
-                        ? styles.inputError
+                        ? authScreenStyles.inputError
                         : undefined,
                     ]}
                   >
                     <TextInput
-                      style={styles.passwordInput}
+                      style={authScreenStyles.passwordInput}
                       placeholder="Enter your password"
                       placeholderTextColor="#999"
                       onChangeText={handleChange("password")}
@@ -113,21 +116,23 @@ export default function LoginScreen({ onSignupPress }: LoginScreenProps) {
                       onPress={() => setShowPassword(!showPassword)}
                       disabled={isLoading}
                     >
-                      <Text style={styles.togglePasswordText}>
+                      <Text style={authScreenStyles.togglePasswordText}>
                         {showPassword ? "Hide" : "Show"}
                       </Text>
                     </TouchableOpacity>
                   </View>
                   {touched.password && errors.password && (
-                    <Text style={styles.errorText}>{errors.password}</Text>
+                    <Text style={authScreenStyles.errorText}>
+                      {errors.password}
+                    </Text>
                   )}
                 </View>
 
                 {/* Login Button */}
                 <TouchableOpacity
                   style={[
-                    styles.loginButton,
-                    isLoading && styles.buttonDisabled,
+                    authScreenStyles.authButton,
+                    isLoading && authScreenStyles.buttonDisabled,
                   ]}
                   onPress={() => handleSubmit()}
                   disabled={isLoading}
@@ -135,28 +140,30 @@ export default function LoginScreen({ onSignupPress }: LoginScreenProps) {
                   {isLoading ? (
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
-                    <Text style={styles.loginButtonText}>Sign In</Text>
+                    <Text style={authScreenStyles.authButtonText}>Sign In</Text>
                   )}
                 </TouchableOpacity>
 
                 {/* Divider */}
-                <View style={styles.dividerContainer}>
-                  <View style={styles.divider} />
-                  <Text style={styles.dividerText}>or</Text>
-                  <View style={styles.divider} />
+                <View style={authScreenStyles.dividerContainer}>
+                  <View style={authScreenStyles.divider} />
+                  <Text style={authScreenStyles.dividerText}>or</Text>
+                  <View style={authScreenStyles.divider} />
                 </View>
 
                 {/* Signup Link */}
-                <View style={styles.signupContainer}>
-                  <Text style={styles.signupText}>Don't have an account? </Text>
+                <View style={authScreenStyles.authLinkContainer}>
+                  <Text style={authScreenStyles.authLinkText}>
+                    Don't have an account?{" "}
+                  </Text>
                   <TouchableOpacity
                     onPress={onSignupPress}
                     disabled={isLoading}
                   >
                     <Text
                       style={[
-                        styles.signupLink,
-                        isLoading && styles.linkDisabled,
+                        authScreenStyles.authLinkButton,
+                        isLoading && authScreenStyles.linkDisabled,
                       ]}
                     >
                       Sign Up
@@ -173,13 +180,6 @@ export default function LoginScreen({ onSignupPress }: LoginScreenProps) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f5f5f5",
-  },
-  keyboardAvoid: {
-    flex: 1,
-  },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 20,
@@ -200,103 +200,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#666",
     fontWeight: "500",
-  },
-  formContainer: {
-    width: "100%",
-  },
-  fieldContainer: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: "#333",
-  },
-  inputError: {
-    borderColor: "#f44336",
-  },
-  passwordContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-    borderRadius: 8,
-    paddingHorizontal: 16,
-  },
-  passwordInput: {
-    flex: 1,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: "#333",
-  },
-  togglePasswordText: {
-    color: "#007AFF",
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  errorText: {
-    color: "#f44336",
-    fontSize: 12,
-    marginTop: 6,
-    fontWeight: "500",
-  },
-  loginButton: {
-    backgroundColor: "#007AFF",
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: "center",
-    marginTop: 24,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  loginButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  dividerContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 32,
-  },
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "#e0e0e0",
-  },
-  dividerText: {
-    marginHorizontal: 16,
-    color: "#999",
-    fontSize: 14,
-  },
-  signupContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  signupText: {
-    color: "#666",
-    fontSize: 14,
-  },
-  signupLink: {
-    color: "#007AFF",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  linkDisabled: {
-    opacity: 0.6,
   },
 });

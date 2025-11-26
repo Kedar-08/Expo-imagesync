@@ -17,6 +17,7 @@ Offline-first photo sync example built with Expo (managed workflow).
 - Simple UI with sync status and server id display
 - Basic image compression/quality controls to reduce storage usage
 - Manual retry and pull-to-refresh to force queue processing
+- Role-based admin system (User / Admin / Super Admin) with audit trails for promotions and deletions
 
 ## Where data lives
 
@@ -146,5 +147,45 @@ Files you will likely edit:
 - `src/db/db.ts` — migrations and DB queries
 - `src/screens/*` — UI screens (Capture, UserManagement, AssetManagement, UserProfile)
 - `src/utils/api.ts` — mock or real backend upload settings
+- `src/utils/styleHelpers.ts` — centralized app styles (600+ lines)
+- `src/hooks/` — custom hooks for data logic (useAssets, useUserProfile, useUserManagement)
+
+## Code organization
+
+**Screen pages:**
+
+- `CaptureScreen.tsx` — Main screen for capturing photos via camera or picking from gallery, displays upload queue status
+- `AssetManagementScreen.tsx` — Admin view to browse all uploaded images and delete them if needed
+- `UserManagementScreen.tsx` — Admin interface to view users, promote/demote roles, view profiles, and manage access
+- `UserProfileScreen.tsx` — User profile page showing user info and their uploaded images (or admin activity logs)
+
+**Custom hooks** (reusable data logic):
+
+- `useAssets.ts` — Handles asset loading, refreshing, retrying failed uploads, and deletion
+- `useUserProfile.ts` — Manages user profile data and role-specific information display
+- `useUserManagement.ts` — Handles user promotions, demotions, deletions, and role management
+
+**UI components** (reusable, memoized):
+
+- `AssetCard.tsx` — Individual asset list item with image preview and metadata
+- `UserCard.tsx` — Individual user list item with role badge and action buttons
+- `CameraModal.tsx` — Camera interface for capturing photos
+- `ZoomModal.tsx` — Image zoom viewer for inspecting photos
+- `AssetPreviewModal.tsx` — Preview modal for selected assets
+- `CaptureHeader.tsx` — Top navigation header with user info and role indicator
+
+**Utilities** (shared functions and styles):
+
+- `styleHelpers.ts` — Centralized styling for all screens and components
+- `dateHelpers.ts` — Date formatting and timestamp utilities
+- `dbHelpers.ts` — Database query wrappers and helpers
+- `imageHelpers.ts` — Image compression and processing utilities
+- `api.ts` — Backend API configuration and endpoints
+
+**Core services:**
+
+- `BackgroundSync.ts` — Handles background sync tasks via Expo task manager
+- `QueueManager.ts` — Manages upload queue, retry logic, and concurrency
+- `SyncEventBus.ts` — Event-driven sync notifications using RxJS
 
 ---

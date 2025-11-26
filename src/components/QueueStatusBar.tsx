@@ -118,8 +118,9 @@ export default function QueueStatusBar() {
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 12,
+    paddingVertical: 8,
     paddingHorizontal: 16,
+    minHeight: 50,
   },
   content: {
     flexDirection: "row",
@@ -148,7 +149,7 @@ const styles = StyleSheet.create({
   },
   metricText: {
     color: "#fff",
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: "500",
   },
 });

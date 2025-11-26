@@ -154,10 +154,6 @@ export class QueueManager {
     return Math.max(1000, baseDelay + jitter);
   }
 
-  getMetrics(): QueueMetrics {
-    return this.metrics$.value;
-  }
-
   getMetrics$(): Observable<QueueMetrics> {
     return this.metrics$.asObservable();
   }

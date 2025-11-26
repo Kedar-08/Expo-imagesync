@@ -1,24 +1,5 @@
-import * as SQLite from "expo-sqlite";
 import type { LocalAssetRecord } from "../types";
-
-const DB_NAME = "photosync.db";
-const db = (SQLite as any).openDatabase(DB_NAME);
-
-function execSql<T = any>(sql: string, params: any[] = []): Promise<T> {
-  return new Promise((resolve, reject) => {
-    db.transaction((tx: any) => {
-      tx.executeSql(
-        sql,
-        params,
-        (_: any, result: any) => resolve(result as unknown as T),
-        (_: any, err: any) => {
-          reject(err);
-          return false;
-        }
-      );
-    });
-  });
-}
+import { execSql, queryAll, queryOne, insertOne } from "../utils/dbHelpers";
 
 export async function initializeSchema(): Promise<void> {
   await execSql(
@@ -129,7 +110,7 @@ export async function insertAsset(params: {
   userId?: number | null;
   username?: string | null;
 }): Promise<number> {
-  const result: any = await execSql(
+  return insertOne(
     `INSERT INTO assets (filename, mime_type, timestamp_ms, status, retries, latitude, longitude, image_base64, uri, file_size_bytes, user_id, username)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
@@ -147,61 +128,46 @@ export async function insertAsset(params: {
       params.username ?? null,
     ]
   );
-  return result.insertId;
 }
 
 export async function getAllAssets(): Promise<LocalAssetRecord[]> {
-  const res: any = await execSql(`SELECT * FROM assets ORDER BY id DESC`);
-  const rows: LocalAssetRecord[] = [];
-  for (let i = 0; i < res.rows.length; i++) {
-    rows.push(mapRow(res.rows.item(i)));
-  }
-  return rows;
+  const rows = await queryAll<any>(`SELECT * FROM assets ORDER BY id DESC`);
+  return rows.map(mapRow);
 }
 
 export async function getPendingAssets(limit = 5): Promise<LocalAssetRecord[]> {
-  const res: any = await execSql(
+  const rows = await queryAll<any>(
     `SELECT * FROM assets WHERE status IN ('pending', 'failed') ORDER BY id ASC LIMIT ?`,
     [limit]
   );
-  const rows: LocalAssetRecord[] = [];
-  for (let i = 0; i < res.rows.length; i++) {
-    rows.push(mapRow(res.rows.item(i)));
-  }
-  return rows;
+  return rows.map(mapRow);
 }
 
 export async function reservePendingAssets(
   limit = 5
 ): Promise<LocalAssetRecord[]> {
   // Fetch ids to reserve (include failed items to retry when online)
-  const sel: any = await execSql(
+  const sel = await queryAll<{ id: number }>(
     `SELECT id FROM assets WHERE status IN ('pending', 'failed') ORDER BY id ASC LIMIT ?`,
     [limit]
   );
-  const ids: number[] = [];
-  for (let i = 0; i < sel.rows.length; i++) {
-    ids.push(sel.rows.item(i).id);
-  }
-  if (ids.length === 0) return [];
+  if (sel.length === 0) return [];
+
+  const ids = sel.map((r) => r.id);
+  const placeholders = ids.map(() => "?").join(",");
 
   // Mark them as uploading
-  const placeholders = ids.map(() => "?").join(",");
   await execSql(
     `UPDATE assets SET status = 'uploading' WHERE id IN (${placeholders})`,
     ids
   );
 
   // Return the full rows
-  const rowsRes: any = await execSql(
+  const rowsRes = await queryAll<any>(
     `SELECT * FROM assets WHERE id IN (${placeholders}) ORDER BY id ASC`,
     ids
   );
-  const out: LocalAssetRecord[] = [];
-  for (let i = 0; i < rowsRes.rows.length; i++) {
-    out.push(mapRow(rowsRes.rows.item(i)));
-  }
-  return out;
+  return rowsRes.map(mapRow);
 }
 
 export async function markUploaded(
@@ -216,10 +182,11 @@ export async function markUploaded(
 
 export async function incrementRetry(id: number): Promise<number> {
   await execSql(`UPDATE assets SET retries = retries + 1 WHERE id = ?`, [id]);
-  const sel: any = await execSql(`SELECT retries FROM assets WHERE id = ?`, [
-    id,
-  ]);
-  return sel.rows.item(0).retries;
+  const row = await queryOne<{ retries: number }>(
+    `SELECT retries FROM assets WHERE id = ?`,
+    [id]
+  );
+  return row?.retries ?? 0;
 }
 
 export async function markFailed(id: number): Promise<void> {
@@ -249,10 +216,11 @@ export async function incrementRetryCapped(
   id: number,
   maxRetries: number
 ): Promise<number> {
-  const sel: any = await execSql(`SELECT retries FROM assets WHERE id = ?`, [
-    id,
-  ]);
-  const current = sel.rows.item(0)?.retries ?? 0;
+  const row = await queryOne<{ retries: number }>(
+    `SELECT retries FROM assets WHERE id = ?`,
+    [id]
+  );
+  const current = row?.retries ?? 0;
   if (current >= maxRetries) return current;
   await execSql(`UPDATE assets SET retries = ? WHERE id = ?`, [
     current + 1,
@@ -288,16 +256,12 @@ export async function deleteAsset(
   // If admin info is provided, record the deletion
   if (deletedByAdminId && deletedByAdminUsername) {
     // First get the asset details before deleting
-    const res: any = await execSql(
+    const asset = await queryOne<any>(
       `SELECT filename, user_id, username, image_base64, mime_type FROM assets WHERE id = ?`,
       [id]
     );
 
-    if (res.rows.length > 0) {
-      const asset = res.rows.item(0);
-      const imageBase64 = asset.image_base64 || null;
-      const mimeType = asset.mime_type || null;
-
+    if (asset) {
       // Record the deletion
       await execSql(
         `INSERT INTO deleted_assets (asset_filename, asset_original_id, original_uploader_id, original_uploader_username, image_base64, mime_type, deleted_by_admin_id, deleted_by_admin_username, deletion_timestamp_ms)
@@ -307,8 +271,8 @@ export async function deleteAsset(
           id,
           asset.user_id ?? null,
           asset.username ?? null,
-          imageBase64,
-          mimeType,
+          asset.image_base64 || null,
+          asset.mime_type || null,
           deletedByAdminId,
           deletedByAdminUsername,
           Date.now(),
@@ -326,38 +290,28 @@ export interface AssetWithUser extends LocalAssetRecord {
 }
 
 export async function getAllAssetsWithUsers(): Promise<AssetWithUser[]> {
-  const res: any = await execSql(
+  const rows = await queryAll<any>(
     `SELECT * FROM assets ORDER BY timestamp_ms DESC`
   );
-  const rows: AssetWithUser[] = [];
-  for (let i = 0; i < res.rows.length; i++) {
-    const row = res.rows.item(i);
-    rows.push({
-      ...mapRow(row),
-      userId: row.user_id ?? null,
-      username: row.username ?? null,
-    });
-  }
-  return rows;
+  return rows.map((row) => ({
+    ...mapRow(row),
+    userId: row.user_id ?? null,
+    username: row.username ?? null,
+  }));
 }
 
 export async function getAssetsByUserId(
   userId: number
 ): Promise<AssetWithUser[]> {
-  const res: any = await execSql(
+  const rows = await queryAll<any>(
     `SELECT * FROM assets WHERE user_id = ? ORDER BY timestamp_ms DESC`,
     [userId]
   );
-  const rows: AssetWithUser[] = [];
-  for (let i = 0; i < res.rows.length; i++) {
-    const row = res.rows.item(i);
-    rows.push({
-      ...mapRow(row),
-      userId: row.user_id ?? null,
-      username: row.username ?? null,
-    });
-  }
-  return rows;
+  return rows.map((row) => ({
+    ...mapRow(row),
+    userId: row.user_id ?? null,
+    username: row.username ?? null,
+  }));
 }
 
 // Types for admin tracking
@@ -387,52 +341,42 @@ export interface DeletedAssetRecord {
 export async function getAdminPromotions(
   adminId: number
 ): Promise<AdminPromotion[]> {
-  const res: any = await execSql(
+  const rows = await queryAll<any>(
     `SELECT ap.*, u.email FROM admin_promotions ap 
      LEFT JOIN users u ON ap.promoted_user_id = u.id 
      WHERE ap.promoted_by_admin_id = ? ORDER BY ap.promotion_timestamp_ms DESC`,
     [adminId]
   );
-  const rows: AdminPromotion[] = [];
-  for (let i = 0; i < res.rows.length; i++) {
-    const row = res.rows.item(i);
-    rows.push({
-      id: row.id,
-      promotedUserId: row.promoted_user_id,
-      promotedUsername: row.promoted_user_username,
-      promotedUserEmail: row.promoted_user_email ?? row.email ?? null,
-      promotedByAdminId: row.promoted_by_admin_id,
-      promotedByAdminUsername: row.promoted_by_admin_username,
-      promotionTimestampMs: row.promotion_timestamp_ms,
-    });
-  }
-  return rows;
+  return rows.map((row) => ({
+    id: row.id,
+    promotedUserId: row.promoted_user_id,
+    promotedUsername: row.promoted_user_username,
+    promotedUserEmail: row.promoted_user_email ?? row.email ?? null,
+    promotedByAdminId: row.promoted_by_admin_id,
+    promotedByAdminUsername: row.promoted_by_admin_username,
+    promotionTimestampMs: row.promotion_timestamp_ms,
+  }));
 }
 
 export async function getDeletedAssetsByAdmin(
   adminId: number
 ): Promise<DeletedAssetRecord[]> {
-  const res: any = await execSql(
+  const rows = await queryAll<any>(
     `SELECT * FROM deleted_assets WHERE deleted_by_admin_id = ? ORDER BY deletion_timestamp_ms DESC`,
     [adminId]
   );
-  const rows: DeletedAssetRecord[] = [];
-  for (let i = 0; i < res.rows.length; i++) {
-    const row = res.rows.item(i);
-    rows.push({
-      id: row.id,
-      assetFilename: row.asset_filename,
-      assetOriginalId: row.asset_original_id ?? null,
-      originalUploaderId: row.original_uploader_id ?? null,
-      originalUploaderUsername: row.original_uploader_username ?? null,
-      imageBase64: row.image_base64 ?? null,
-      mimeType: row.mime_type ?? null,
-      deletedByAdminId: row.deleted_by_admin_id,
-      deletedByAdminUsername: row.deleted_by_admin_username,
-      deletionTimestampMs: row.deletion_timestamp_ms,
-    });
-  }
-  return rows;
+  return rows.map((row) => ({
+    id: row.id,
+    assetFilename: row.asset_filename,
+    assetOriginalId: row.asset_original_id ?? null,
+    originalUploaderId: row.original_uploader_id ?? null,
+    originalUploaderUsername: row.original_uploader_username ?? null,
+    imageBase64: row.image_base64 ?? null,
+    mimeType: row.mime_type ?? null,
+    deletedByAdminId: row.deleted_by_admin_id,
+    deletedByAdminUsername: row.deleted_by_admin_username,
+    deletionTimestampMs: row.deletion_timestamp_ms,
+  }));
 }
 
 export async function recordAdminPromotion(
@@ -442,17 +386,10 @@ export async function recordAdminPromotion(
   promotedByAdminUsername: string
 ): Promise<void> {
   // Fetch the user's email from the users table
-  let promotedUserEmail: string | null = null;
-  try {
-    const res: any = await execSql(`SELECT email FROM users WHERE id = ?`, [
-      promotedUserId,
-    ]);
-    if (res.rows.length > 0) {
-      promotedUserEmail = res.rows.item(0).email;
-    }
-  } catch (error) {
-    console.error("Error fetching user email:", error);
-  }
+  const user = await queryOne<{ email: string }>(
+    `SELECT email FROM users WHERE id = ?`,
+    [promotedUserId]
+  );
 
   await execSql(
     `INSERT INTO admin_promotions (promoted_user_id, promoted_user_username, promoted_user_email, promoted_by_admin_id, promoted_by_admin_username, promotion_timestamp_ms)
@@ -460,7 +397,7 @@ export async function recordAdminPromotion(
     [
       promotedUserId,
       promotedUsername,
-      promotedUserEmail,
+      user?.email ?? null,
       promotedByAdminId,
       promotedByAdminUsername,
       Date.now(),

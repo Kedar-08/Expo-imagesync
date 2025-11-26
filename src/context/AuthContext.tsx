@@ -9,7 +9,7 @@ import {
   initializeUsersTable,
   registerUser as dbRegisterUser,
   getUserByEmail,
-  verifyPassword,
+  verifyPasswordHash,
   updateUserRole,
   createOrGetSuperAdmin,
 } from "../db/users";
@@ -107,7 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         }
 
         // Verify password against stored hash
-        const passwordMatch = await verifyPassword(
+        const passwordMatch = await verifyPasswordHash(
           trimmedPassword,
           dbUser.passwordHash
         );
@@ -195,7 +195,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (dbUser) {
         // User exists - verify password and update role if needed
-        const passwordMatch = await verifyPassword(
+        const passwordMatch = await verifyPasswordHash(
           password,
           dbUser.passwordHash
         );
