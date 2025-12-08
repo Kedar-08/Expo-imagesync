@@ -49,7 +49,8 @@ export async function compressImageToBase64(
 export async function processAndQueueImage(
   imageUri: string,
   user: AuthUser | null,
-  onReload: () => Promise<void>
+  onReload: () => Promise<void>,
+  photoCategory?: string
 ): Promise<void> {
   const filename = `photo_${Date.now()}.jpg`;
   const docUri = FileSystem.documentDirectory + filename;
@@ -74,6 +75,7 @@ export async function processAndQueueImage(
     fileSizeBytes,
     userId: user?.id ? parseInt(user.id, 10) : null,
     username: user?.username || null,
+    photoCategory: photoCategory || "Site",
   });
 
   syncEventBus.emitAssetQueued(assetId);

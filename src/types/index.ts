@@ -1,5 +1,6 @@
 export type AssetStatus = "pending" | "uploading" | "uploaded" | "failed";
-export type UserRole = "superadmin" | "admin" | "user";
+export type UserRole = "site_auditor"; // Simplified for POC - single role
+export type PhotoCategory = "Circuit" | "Space" | "Power" | "Site";
 
 export interface LocalAssetRecord {
   id: number;
@@ -16,6 +17,7 @@ export interface LocalAssetRecord {
   fileSizeBytes?: number;
   userId?: number | null;
   username?: string | null;
+  photoCategory?: PhotoCategory | null;
 }
 
 export interface QueueMetrics {
@@ -57,12 +59,7 @@ export interface AuthContextType {
   isSuperAdmin: boolean;
   isUser: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (
-    email: string,
-    username: string,
-    name: string,
-    password: string
-  ) => Promise<void>;
+  // signup removed for POC - users managed externally
   logout: () => Promise<void>;
   checkAuthStatus: () => Promise<void>;
 }

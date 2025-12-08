@@ -53,38 +53,37 @@ export default function CaptureHeader({
         <View style={styles.userInfoContainer}>
           <Text style={styles.userGreeting}>👤 {user?.name}</Text>
           <Text style={styles.userEmail}>{user?.email}</Text>
-          <Text style={styles.userRole}>Role: {user?.role?.toUpperCase()}</Text>
+          <Text style={styles.userRole}>Site Auditor</Text>
         </View>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.logoutButtonText}>Logout</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Action Buttons - Different for Admin and User */}
-      {isUser && (
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={[
-              buttonStyle("#007AFF", 30, 12),
-              { minWidth: 140, alignItems: "center" },
-            ]}
-            onPress={onCapture}
-          >
-            <Text style={buttonTextStyle()}>📷 Camera</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              buttonStyle("#007AFF", 30, 12),
-              { minWidth: 140, alignItems: "center" },
-            ]}
-            onPress={onPick}
-          >
-            <Text style={buttonTextStyle()}>🖼️ Gallery</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      {/* Action Buttons - Simplified for POC */}
+      <View style={styles.buttonRow}>
+        <TouchableOpacity
+          style={[
+            buttonStyle("#007AFF", 30, 12),
+            { minWidth: 140, alignItems: "center" },
+          ]}
+          onPress={onCapture}
+        >
+          <Text style={buttonTextStyle()}>📷 Camera</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            buttonStyle("#007AFF", 30, 12),
+            { minWidth: 140, alignItems: "center" },
+          ]}
+          onPress={onPick}
+        >
+          <Text style={buttonTextStyle()}>🖼️ Gallery</Text>
+        </TouchableOpacity>
+      </View>
 
-      {(isAdmin || isSuperAdmin) && (
+      {/* Admin features removed for POC */}
+      {false && (
         <View>
           <View style={styles.adminButtonRow}>
             <Text style={styles.adminModeText}>

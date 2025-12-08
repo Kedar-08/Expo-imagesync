@@ -19,7 +19,7 @@ interface Props {
   isFailed?: boolean;
   onZoom: (item: LocalAssetRecord) => void;
   onRetry: (id: number) => Promise<void>;
-  onDelete: (id: number, filename: string) => Promise<void>;
+  onDelete?: (id: number, filename: string) => Promise<void>; // Optional for POC
   formatDate: (ts: number) => string;
 }
 
@@ -53,6 +53,20 @@ export default memo(function AssetItem({
         <Text numberOfLines={1}>{item.filename}</Text>
         {item.username && (
           <Text style={styles.uploaderUsername}>By: {item.username}</Text>
+        )}
+        {item.photoCategory && (
+          <View style={styles.categoryBadge}>
+            <Text style={styles.categoryText}>
+              {item.photoCategory === "Circuit"
+                ? "⚡"
+                : item.photoCategory === "Space"
+                  ? "📐"
+                  : item.photoCategory === "Power"
+                    ? "🔌"
+                    : "📍"}{" "}
+              {item.photoCategory}
+            </Text>
+          </View>
         )}
         <Text style={styles.timestamp}>{formatDate(item.timestampMs)}</Text>
 
@@ -103,7 +117,7 @@ export default memo(function AssetItem({
           </TouchableOpacity>
         )}
 
-        {(isAdmin || isSuperAdmin) && (
+        {isUser && onDelete && !isSyncing && (
           <TouchableOpacity
             style={buttonStyle("#f44336")}
             onPress={() => onDelete(item.id, item.filename)}
@@ -168,5 +182,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#ff9800",
     marginTop: 2,
+  },
+  categoryBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: "#f5f5f5",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginTop: 4,
+  },
+  categoryText: {
+    fontSize: 12,
+    color: "#333",
+    fontWeight: "500",
   },
 });

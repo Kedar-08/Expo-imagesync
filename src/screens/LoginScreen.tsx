@@ -17,11 +17,9 @@ import { useAuth } from "../context/AuthContext";
 import { loginValidationSchema } from "../utils/validationSchemas";
 import { authScreenStyles } from "../utils/styleHelpers";
 
-interface LoginScreenProps {
-  onSignupPress: () => void;
-}
+interface LoginScreenProps {} // No props needed for simplified POC
 
-export default function LoginScreen({ onSignupPress }: LoginScreenProps) {
+export default function LoginScreen({}: LoginScreenProps) {
   const { login, isLoading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
 
@@ -45,8 +43,8 @@ export default function LoginScreen({ onSignupPress }: LoginScreenProps) {
         >
           {/* Header */}
           <View style={styles.headerContainer}>
-            <Text style={styles.title}>PhotoSync</Text>
-            <Text style={styles.subtitle}>Sign in to your account</Text>
+            <Text style={styles.title}>Site Auditor</Text>
+            <Text style={styles.subtitle}>Login to continue</Text>
           </View>
 
           {/* Form */}
@@ -143,33 +141,6 @@ export default function LoginScreen({ onSignupPress }: LoginScreenProps) {
                     <Text style={authScreenStyles.authButtonText}>Sign In</Text>
                   )}
                 </TouchableOpacity>
-
-                {/* Divider */}
-                <View style={authScreenStyles.dividerContainer}>
-                  <View style={authScreenStyles.divider} />
-                  <Text style={authScreenStyles.dividerText}>or</Text>
-                  <View style={authScreenStyles.divider} />
-                </View>
-
-                {/* Signup Link */}
-                <View style={authScreenStyles.authLinkContainer}>
-                  <Text style={authScreenStyles.authLinkText}>
-                    Don't have an account?{" "}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={onSignupPress}
-                    disabled={isLoading}
-                  >
-                    <Text
-                      style={[
-                        authScreenStyles.authLinkButton,
-                        isLoading && authScreenStyles.linkDisabled,
-                      ]}
-                    >
-                      Sign Up
-                    </Text>
-                  </TouchableOpacity>
-                </View>
               </View>
             )}
           </Formik>

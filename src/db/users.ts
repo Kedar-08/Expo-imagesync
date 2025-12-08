@@ -2,7 +2,6 @@ import { recordAdminPromotion } from "./db";
 import {
   execSql,
   queryOne,
-  queryAll,
   hashPassword,
   verifyPassword,
 } from "../utils/dbHelpers";
@@ -32,35 +31,6 @@ export async function initializeUsersTable(): Promise<void> {
       updatedAt TEXT NOT NULL
     )`
   );
-}
-
-/**
- * Register a new user with email, username, and password
- */
-export async function registerUser(
-  email: string,
-  username: string,
-  password: string
-): Promise<StoredUser> {
-  if (!email || !username || !password) {
-    throw new Error("Email, username, and password are required");
-  }
-
-  const existing = await getUserByEmail(email);
-  if (existing) {
-    throw new Error("User with this email already exists");
-  }
-
-  const passwordHash = await hashPassword(password);
-  const now = new Date().toISOString();
-
-  await execSql(
-    `INSERT INTO users (email, username, passwordHash, role, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [email, username, passwordHash, "user", now, now]
-  );
-
-  return (await getUserByEmail(email)) as StoredUser;
 }
 
 /**
@@ -106,7 +76,7 @@ export async function verifyPasswordHash(
 }
 
 /**
- * Update user role (admin operation)
+ * Update user role (admin operation - POC: simplified)
  */
 export async function updateUserRole(
   userId: number,
@@ -124,7 +94,6 @@ export async function updateUserRole(
 
   const updatedUser = (await getUserById(userId)) as StoredUser;
 
-  // Track promotion if admin info is provided and role is being set to admin
   if (role === "admin" && promotedByAdminId && promotedByAdminUsername) {
     try {
       await recordAdminPromotion(
@@ -142,27 +111,12 @@ export async function updateUserRole(
 }
 
 /**
- * Get all users (admin operation)
- */
-export async function getAllUsers(): Promise<StoredUser[]> {
-  return queryAll<StoredUser>(`SELECT * FROM users ORDER BY createdAt DESC`);
-}
-
-/**
- * Delete user by ID (admin operation)
- */
-export async function deleteUser(userId: number): Promise<void> {
-  await execSql(`DELETE FROM users WHERE id = ?`, [userId]);
-}
-
-/**
- * Create or get Super Admin user
+ * Create or get Super Admin user (POC: for initial setup)
  */
 export async function createOrGetSuperAdmin(
   email: string,
   username: string
 ): Promise<StoredUser> {
-  // Try to get existing user by email
   let existing = await getUserByEmail(email);
   if (existing) {
     if (existing.role !== "superadmin") {
@@ -171,7 +125,6 @@ export async function createOrGetSuperAdmin(
     return existing;
   }
 
-  // Try to get existing user by username
   existing = await getUserByUsername(username);
   if (existing) {
     if (existing.role !== "superadmin") {
@@ -180,7 +133,6 @@ export async function createOrGetSuperAdmin(
     return existing;
   }
 
-  // Create new Super Admin user
   const passwordHash = await hashPassword("Superadmin123");
   const now = new Date().toISOString();
 

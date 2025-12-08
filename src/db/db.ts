@@ -34,6 +34,15 @@ export async function initializeSchema(): Promise<void> {
     // Column already exists, ignore error
   }
 
+  // Migration: Add photo_category column for categorizing photos
+  try {
+    await execSql(
+      `ALTER TABLE assets ADD COLUMN photo_category TEXT DEFAULT 'Site'`
+    );
+  } catch (err) {
+    // Column already exists, ignore error
+  }
+
   // Migration: Clear invalid server IDs from previous mock versions
   // (e.g., "local_1_", "server_1_timestamp", etc.)
   try {
@@ -109,10 +118,11 @@ export async function insertAsset(params: {
   fileSizeBytes?: number;
   userId?: number | null;
   username?: string | null;
+  photoCategory?: string | null;
 }): Promise<number> {
   return insertOne(
-    `INSERT INTO assets (filename, mime_type, timestamp_ms, status, retries, latitude, longitude, image_base64, uri, file_size_bytes, user_id, username)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO assets (filename, mime_type, timestamp_ms, status, retries, latitude, longitude, image_base64, uri, file_size_bytes, user_id, username, photo_category)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       params.filename,
       params.mimeType,
@@ -126,6 +136,7 @@ export async function insertAsset(params: {
       params.fileSizeBytes ?? null,
       params.userId ?? null,
       params.username ?? null,
+      params.photoCategory ?? "Site",
     ]
   );
 }
@@ -245,6 +256,7 @@ function mapRow(r: any): LocalAssetRecord {
     fileSizeBytes: r.file_size_bytes ?? null,
     userId: r.user_id ?? null,
     username: r.username ?? null,
+    photoCategory: (r.photo_category as any) ?? "Site",
   };
 }
 

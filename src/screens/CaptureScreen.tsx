@@ -1,40 +1,32 @@
 import React, { useCallback, useState } from "react";
-import { View, FlatList, StyleSheet } from "react-native";
+import { View, FlatList, StyleSheet, Alert } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import type { LocalAssetRecord } from "../types";
+import type { LocalAssetRecord, PhotoCategory } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { processAndQueueImage } from "../utils/imageHelpers";
+import { deleteAsset } from "../db/db";
 import AssetItem from "../components/AssetItem";
 import ZoomModal from "../components/ZoomModal";
 import CameraModal from "../components/CameraModal";
 import CaptureHeader from "../components/CaptureHeader";
+import CategoryPicker from "../components/CategoryPicker";
 import { useAssets } from "../hooks/useAssets";
 
-interface CaptureScreenProps {
-  onNavigateToUsers?: () => void;
-  onNavigateToAssets?: () => void;
-  currentScreen?: "capture" | "users" | "assets";
-}
+interface CaptureScreenProps {} // Simplified for POC - no navigation
 
-export default function CaptureScreen({
-  onNavigateToUsers,
-  onNavigateToAssets,
-  currentScreen,
-}: CaptureScreenProps) {
-  const { logout, user, isAdmin, isSuperAdmin, isUser } = useAuth();
-  const {
-    items,
-    syncingIds,
-    failedIds,
-    refreshing,
-    onRefresh,
-    handleRetry,
-    handleDeleteAsset,
-  } = useAssets(user, isAdmin, isSuperAdmin);
+export default function CaptureScreen({}: CaptureScreenProps) {
+  const { logout, user } = useAuth();
+  const { items, syncingIds, failedIds, refreshing, onRefresh, handleRetry } =
+    useAssets(user, false, false); // No admin features for POC
 
   const [showCamera, setShowCamera] = useState(false);
   const [showZoom, setShowZoom] = useState(false);
   const [selectedImage, setSelectedImage] = useState<LocalAssetRecord | null>(
+    null
+  );
+  const [selectedCategory, setSelectedCategory] =
+    useState<PhotoCategory>("Site");
+  const [filterCategory, setFilterCategory] = useState<PhotoCategory | null>(
     null
   );
 
@@ -58,14 +50,19 @@ export default function CaptureScreen({
       const uri = asset.uri;
 
       try {
-        await processAndQueueImage(uri, user, async () => {
-          await onRefresh();
-        });
+        await processAndQueueImage(
+          uri,
+          user,
+          async () => {
+            await onRefresh();
+          },
+          selectedCategory
+        );
       } catch (error) {
         console.error("Error processing image:", error);
       }
     },
-    [onRefresh, user]
+    [onRefresh, user, selectedCategory]
   );
 
   const handleCapture = useCallback(async () => {
@@ -101,39 +98,81 @@ export default function CaptureScreen({
     await handlePickerResult(result);
   }, [handlePickerResult]);
 
+  const handleDelete = useCallback(
+    async (id: number, filename: string) => {
+      Alert.alert(
+        "Delete Photo",
+        `Are you sure you want to delete ${filename}?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                await deleteAsset(id);
+                await onRefresh();
+              } catch (error) {
+                console.error("Error deleting asset:", error);
+                Alert.alert("Error", "Failed to delete photo");
+              }
+            },
+          },
+        ]
+      );
+    },
+    [onRefresh]
+  );
+
   const handleCameraCapture = useCallback(
     async (cameraRef: any) => {
       try {
         const photo = await cameraRef.takePictureAsync({ quality: 0.5 });
         if (photo?.uri) {
-          await processAndQueueImage(photo.uri, user, async () => {
-            await onRefresh();
-          });
+          await processAndQueueImage(
+            photo.uri,
+            user,
+            async () => {
+              await onRefresh();
+            },
+            selectedCategory
+          );
         }
       } catch (err: any) {
         console.warn("takePictureAsync error", err);
       }
     },
-    [onRefresh, user]
+    [onRefresh, user, selectedCategory]
   );
 
   return (
     <View style={styles.container}>
       <CaptureHeader
         user={user}
-        isUser={isUser}
-        isAdmin={isAdmin}
-        isSuperAdmin={isSuperAdmin}
-        currentScreen={currentScreen}
+        isUser={true}
+        isAdmin={false}
+        isSuperAdmin={false}
+        currentScreen="capture"
         onLogout={logout}
-        onNavigateToUsers={onNavigateToUsers}
-        onNavigateToAssets={onNavigateToAssets}
+        onNavigateToUsers={undefined}
+        onNavigateToAssets={undefined}
         onCapture={handleCapture}
         onPick={handlePick}
       />
 
+      <CategoryPicker
+        selectedCategory={selectedCategory}
+        onSelectCategory={setSelectedCategory}
+        filterCategory={filterCategory}
+        onFilterCategory={setFilterCategory}
+      />
+
       <FlatList
-        data={items}
+        data={
+          filterCategory
+            ? items.filter((item) => item.photoCategory === filterCategory)
+            : items
+        }
         keyExtractor={(item) => String(item.id)}
         refreshing={refreshing}
         onRefresh={onRefresh}
@@ -143,9 +182,9 @@ export default function CaptureScreen({
           return (
             <AssetItem
               item={item}
-              isUser={isUser}
-              isAdmin={isAdmin}
-              isSuperAdmin={isSuperAdmin}
+              isUser={true}
+              isAdmin={false}
+              isSuperAdmin={false}
               isSyncing={isSyncing}
               isFailed={isFailed}
               onZoom={(it) => {
@@ -153,7 +192,7 @@ export default function CaptureScreen({
                 setShowZoom(true);
               }}
               onRetry={handleRetry}
-              onDelete={handleDeleteAsset}
+              onDelete={handleDelete}
               formatDate={formatDate}
             />
           );

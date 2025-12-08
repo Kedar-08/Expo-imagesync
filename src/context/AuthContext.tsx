@@ -5,14 +5,7 @@ import {
   decodeToken,
   isTokenExpired,
 } from "../utils/tokenStorage";
-import {
-  initializeUsersTable,
-  registerUser as dbRegisterUser,
-  getUserByEmail,
-  verifyPasswordHash,
-  updateUserRole,
-  createOrGetSuperAdmin,
-} from "../db/users";
+// Database imports removed for POC - using fake auth
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -24,14 +17,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isLoading, setIsLoading] = useState(true);
 
   /**
-   * Initialize database and check if user is already logged in on app start
+   * Check if user is already logged in on app start (POC - no database)
    */
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        // Initialize SQLite users table
-        await initializeUsersTable();
-
         const storedToken = await tokenStorage.getToken();
         const storedUser = await tokenStorage.getUser();
 
@@ -57,8 +47,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   /**
-   * Login function - validates credentials against SQLite database
-   * In production, this would call your backend API
+   * Login function - Simplified for POC
+   * Just validates email/password and stores a fake token
+   * All users are "Site Auditor" role
    */
   const login = async (email: string, password: string): Promise<void> => {
     try {
@@ -73,89 +64,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const trimmedEmail = email.trim();
       const trimmedPassword = password.trim();
 
-      console.log(
-        "Login attempt - Email:",
-        trimmedEmail,
-        "Password:",
-        trimmedPassword
-      );
+      console.log("Login attempt - Email:", trimmedEmail);
 
-      // Check if this is Super Admin (hardcoded credentials) - check FIRST
-      const isSuperAdminLogin =
-        trimmedEmail === "kedar@superadmin.com" &&
-        trimmedPassword === "Superadmin123";
-
-      console.log("isSuperAdminLogin:", isSuperAdminLogin);
-
-      let dbUser;
-
-      if (isSuperAdminLogin) {
-        // Super Admin login - use dedicated function to create or get Super Admin
-        try {
-          console.log("Creating or getting Super Admin user...");
-          dbUser = await createOrGetSuperAdmin(trimmedEmail, "Kedar08");
-          console.log("Super Admin user created/retrieved:", dbUser);
-        } catch (error) {
-          console.error("Error in createOrGetSuperAdmin:", error);
-          throw new Error("Failed to authenticate Super Admin");
-        }
-      } else {
-        // Regular login - look up user in SQLite database
-        dbUser = await getUserByEmail(trimmedEmail);
-        if (!dbUser) {
-          throw new Error("Invalid email or password");
-        }
-
-        // Verify password against stored hash
-        const passwordMatch = await verifyPasswordHash(
-          trimmedPassword,
-          dbUser.passwordHash
-        );
-        if (!passwordMatch) {
-          throw new Error("Invalid email or password");
-        }
-
-        // Check if this should be admin (email ends with @admin.com and password is Admin123)
-        const isAdminLogin =
-          trimmedEmail.endsWith("@admin.com") && trimmedPassword === "Admin123";
-
-        // If admin login and user not admin (and not superadmin), update role
-        if (isAdminLogin && dbUser.role === "user") {
-          dbUser = await updateUserRole(dbUser.id, "admin");
-        }
+      // For POC: Simple validation - just check if both fields have values
+      // In production, this will call RADAR API
+      if (trimmedPassword.length < 3) {
+        throw new Error("Invalid email or password");
       }
 
-      // Create JWT token (valid for 24 hours)
+      // Extract username from email (part before @)
+      const username = trimmedEmail.split("@")[0] || trimmedEmail;
+
+      // Create fake JWT token (valid for 24 hours) - for POC only
       const expiresAt = Math.floor(Date.now() / 1000) + 24 * 60 * 60;
       const mockToken = createMockJWT({
-        id: dbUser.id,
-        email: dbUser.email,
-        username: dbUser.username,
-        role: dbUser.role,
+        id: 1,
+        email: trimmedEmail,
+        username: username,
+        role: "site_auditor",
         iat: Math.floor(Date.now() / 1000),
         exp: expiresAt,
       });
 
-      // Create user object for app
+      // Create user object for app - everyone is "Site Auditor"
       const authUser: AuthUser = {
-        id: dbUser.id.toString(),
-        email: dbUser.email,
-        username: dbUser.username,
-        name: dbUser.username,
-        role: dbUser.role,
+        id: "1",
+        email: trimmedEmail,
+        username: username,
+        name: username,
+        role: "site_auditor",
       };
 
       // Save to secure storage
       try {
         await tokenStorage.saveToken(mockToken);
-      } catch (err) {
-        console.error("Error saving token:", err);
-      }
-
-      try {
         await tokenStorage.saveUser(authUser);
       } catch (err) {
-        console.error("Error saving user:", err);
+        console.error("Error saving credentials:", err);
       }
 
       setToken(mockToken);
@@ -172,94 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
    * Signup function - creates new user in SQLite database with hashed password
    * Determines admin role based on email pattern and password
    */
-  const signup = async (
-    email: string,
-    username: string,
-    name: string,
-    password: string
-  ): Promise<void> => {
-    try {
-      setIsLoading(true);
-
-      // Validate inputs
-      if (!email || !username || !name || !password) {
-        throw new Error("All fields are required");
-      }
-
-      // Check if this is an admin signup (email ends with @admin.com and password is Admin123)
-      const isAdminSignup =
-        email.endsWith("@admin.com") && password === "Admin123";
-
-      // Check if user already exists
-      let dbUser = await getUserByEmail(email);
-
-      if (dbUser) {
-        // User exists - verify password and update role if needed
-        const passwordMatch = await verifyPasswordHash(
-          password,
-          dbUser.passwordHash
-        );
-
-        if (!passwordMatch) {
-          throw new Error("Invalid password for existing user");
-        }
-
-        // If admin signup and user not admin, update role
-        if (isAdminSignup && dbUser.role !== "admin") {
-          dbUser = await updateUserRole(dbUser.id, "admin");
-        }
-      } else {
-        // New user - register in SQLite with hashed password
-        dbUser = await dbRegisterUser(email, username, password);
-
-        // If admin email pattern and password, update role to admin
-        if (isAdminSignup) {
-          dbUser = await updateUserRole(dbUser.id, "admin");
-        }
-      }
-
-      // Create JWT token (valid for 24 hours)
-      const expiresAt = Math.floor(Date.now() / 1000) + 24 * 60 * 60;
-      const mockToken = createMockJWT({
-        id: dbUser.id,
-        email: dbUser.email,
-        username: dbUser.username,
-        role: dbUser.role,
-        iat: Math.floor(Date.now() / 1000),
-        exp: expiresAt,
-      });
-
-      // Create user object for app
-      const authUser: AuthUser = {
-        id: dbUser.id.toString(),
-        email: dbUser.email,
-        username: dbUser.username,
-        name: name,
-        role: dbUser.role,
-      };
-
-      // Save to secure storage
-      try {
-        await tokenStorage.saveToken(mockToken);
-      } catch (err) {
-        console.error("Error saving token:", err);
-      }
-
-      try {
-        await tokenStorage.saveUser(authUser);
-      } catch (err) {
-        console.error("Error saving user:", err);
-      }
-
-      setToken(mockToken);
-      setUser(authUser);
-    } catch (error) {
-      console.error("Signup error:", error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Signup removed for POC - users managed externally via RADAR API
 
   /**
    * Logout function
@@ -306,11 +164,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     token,
     isLoading,
     isSignedIn: !!token && !!user,
-    isAdmin: user?.role === "admin",
-    isSuperAdmin: user?.role === "superadmin",
-    isUser: user?.role === "user",
+    isAdmin: false, // No admin role for POC
+    isSuperAdmin: false, // No super admin role for POC
+    isUser: true, // Everyone is a site auditor
     login,
-    signup,
     logout,
     checkAuthStatus,
   };
